@@ -1,0 +1,29 @@
+# Entornos virtuales de Python
+venv/
+.venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Variables de entorno (contienen secretos — NUNCA subir)
+.env
+
+# Docker
+.dockerignore
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
