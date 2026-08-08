@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer
 from app.database import Base
 
+# Define la tabla 'inventario' que lleva el control del stock de cada producto.
 class Inventario(Base):
     __tablename__ = "inventario"
 

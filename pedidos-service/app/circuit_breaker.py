@@ -4,7 +4,9 @@ import logging
 logger = logging.getLogger("circuit_breaker")
 
 
+# Clase que implementa el patrón Circuit Breaker para evitar sobrecargar servicios externos fallidos.
 class CircuitBreaker:
+    # Inicializa el breaker con un nombre, umbral de fallos y tiempo de espera antes de reintentar.
     def __init__(self, nombre: str, umbral_fallos: int = 3, tiempo_espera: int = 30):
         self.nombre = nombre
         self.umbral_fallos = umbral_fallos
@@ -13,6 +15,7 @@ class CircuitBreaker:
         self.estado = "cerrado"
         self.abierto_desde = None
 
+    # Verifica si el circuito está cerrado (permite llamadas) o semi-abierto (permite una prueba).
     def permitir_llamada(self) -> bool:
         if self.estado == "cerrado":
             return True
@@ -26,12 +29,14 @@ class CircuitBreaker:
 
         return True  # semi-abierto: deja pasar la llamada de prueba
 
+    # Registra un éxito, reseteando el contador de fallos y cerrando el circuito (si estaba semi-abierto).
     def registrar_exito(self):
         if self.estado != "cerrado":
             logger.info(f"[{self.nombre}] Circuito vuelve a CERRADO")
         self.fallos = 0
         self.estado = "cerrado"
 
+    # Registra un fallo y abre el circuito si se supera el umbral de fallos permitidos.
     def registrar_fallo(self):
         self.fallos += 1
         if self.estado == "semi-abierto":

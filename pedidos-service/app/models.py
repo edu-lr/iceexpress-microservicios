@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
 
+# Define la tabla 'pedidos' y sus columnas en la base de datos.
 class Pedido(Base):
     __tablename__ = "pedidos"
 
@@ -14,6 +15,7 @@ class Pedido(Base):
     items = relationship("PedidoItem", back_populates="pedido", cascade="all, delete-orphan")
 
 
+# Define la tabla 'pedido_items' que relaciona un pedido con un producto específico.
 class PedidoItem(Base):
     __tablename__ = "pedido_items"
 

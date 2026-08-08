@@ -23,6 +23,7 @@ class ServicioNoDisponibleError(Exception):
     pass
 
 
+# Función privada que ejecuta una petición con reintentos y control de Circuit Breaker.
 def _llamar_con_resiliencia(breaker: CircuitBreaker, peticion, reintentos: int = 2, espera: float = 0.5):
     if not breaker.permitir_llamada():
         logger.warning(f"[{breaker.nombre}] Circuito ABIERTO, no se intenta la llamada")
@@ -44,6 +45,7 @@ def _llamar_con_resiliencia(breaker: CircuitBreaker, peticion, reintentos: int =
             time.sleep(espera)
 
 
+# Obtiene los datos del producto consultando el microservicio de productos por su ID.
 def obtener_producto(producto_id: int, token: str):
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -62,6 +64,7 @@ def obtener_producto(producto_id: int, token: str):
     return response.json()
 
 
+# Descuenta unidades del stock llamando al microservicio de inventario.
 def descontar_stock(producto_id: int, cantidad: int, token: str) -> bool:
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -83,6 +86,7 @@ def descontar_stock(producto_id: int, cantidad: int, token: str) -> bool:
     return response.status_code == 200
 
 
+# Repone unidades en el stock para revertir una operación de descuento fallida.
 def reponer_stock(producto_id: int, cantidad: int, token: str) -> bool:
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -104,6 +108,7 @@ def reponer_stock(producto_id: int, cantidad: int, token: str) -> bool:
     return response.status_code == 200
 
 
+# Envía la solicitud de pago al microservicio de pagos y devuelve si fue aprobado o no.
 def procesar_pago(pedido_id: int, monto: float, token: str) -> bool:
     headers = {"Authorization": f"Bearer {token}"}
 

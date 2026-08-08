@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, Float, String, DateTime
 from datetime import datetime
 from app.database import Base
 
+# Define la tabla 'pagos' donde se registra cada transacción financiera.
 class Pago(Base):
     __tablename__ = "pagos"
 

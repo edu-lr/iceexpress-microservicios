@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String
 from app.database import Base
 
+# Define la tabla 'usuarios' donde se almacenan las credenciales y datos del perfil.
 class Usuario(Base):
     __tablename__ = "usuarios"
 

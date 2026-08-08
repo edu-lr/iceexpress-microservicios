@@ -1,6 +1,7 @@
 import logging
 import sys
 
+# Define el formato, el nivel de detalle y los destinos (consola/archivo) para los logs del microservicio.
 def configurar_logging():
     formato = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     fecha_formato = "%Y-%m-%d %H:%M:%S"

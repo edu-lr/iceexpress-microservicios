@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from app import models, schemas, clients
 
 
+# Crea el pedido completo: valida productos, descuenta stock, lo guarda en BD y procesa el pago. 
+# En caso de error en cualquier paso, revierte los cambios aplicados.
 def crear_pedido(db: Session, pedido: schemas.PedidoCreate, token: str):
     items_creados = []
     items_descontados = []
@@ -43,15 +45,18 @@ def crear_pedido(db: Session, pedido: schemas.PedidoCreate, token: str):
     return nuevo_pedido, None, None
 
 
+# Función de compensación (rollback) que repone el stock de productos descontados si falla la creación.
 def _revertir(items_descontados, token: str):
     """Compensación: repone el stock de los ítems que ya se habían descontado."""
     for producto_id, cantidad in items_descontados:
         clients.reponer_stock(producto_id, cantidad, token)
 
 
+# Obtiene un pedido específico de la base de datos por su ID.
 def get_pedido(db: Session, pedido_id: int):
     return db.query(models.Pedido).filter(models.Pedido.id == pedido_id).first()
 
 
+# Obtiene una lista paginada de todos los pedidos registrados en la base de datos.
 def get_pedidos(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Pedido).offset(skip).limit(limit).all()

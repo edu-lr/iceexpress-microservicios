@@ -8,7 +8,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/productos_db")
 
-# El "engine" es el objeto que sabe cómo hablar con Postgres (usa psycopg2 por detrás)
+# Crea el motor de conexión que administra los pools de conexiones a la BD.
 engine = create_engine(DATABASE_URL)
 
 # SessionLocal genera "sesiones" — conversaciones individuales con la base de datos
