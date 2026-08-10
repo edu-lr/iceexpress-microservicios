@@ -1,57 +1,152 @@
-# 🧊 IceExpress — Arquitectura de Microservicios
+# 🧊 IceExpress — Sistema de delivery de hielo con microservicios
 
-Sistema de delivery de hielo para pingüinos, construido como challenge de arquitectura de microservicios. Implementa comunicación REST entre servicios, autenticación JWT, patrón Saga con compensación, y Circuit Breaker.
+Este proyecto lo hice para aprender arquitectura de microservicios desde cero. La idea es simple: una app de delivery de hielo para pingüinos (sí, en serio), dividida en 5 servicios independientes que se comunican entre sí por HTTP.
 
-## 🏗️ Arquitectura
+Si estás mirando esto y no entendés algo, o soy yo del futuro olvidándome de cómo funciona, o sos alguien más. En cualquier caso, acá va la explicación.
 
-| Servicio | Puerto | Responsabilidad |
+---
+
+## ¿Qué hay adentro?
+
+Cinco microservicios, cada uno con su propia base de datos PostgreSQL y su propio contenedor Docker:
+
+| Servicio | Puerto | Qué hace |
 |---|---|---|
-| `auth-service` | 8005 | Registro, login, emisión y validación de JWT |
-| `productos-service` | 8001 | CRUD de productos (nombre, tipo de hielo, precio) |
-| `inventario-service` | 8002 | Control de stock por producto |
-| `pedidos-service` | 8003 | Orquestación de pedidos (consulta precio, descuenta stock, cobra) |
-| `pagos-service` | 8004 | Procesamiento simulado de pagos |
+| `auth-service` | 8005 | Login, registro, y genera los tokens JWT |
+| `productos-service` | 8001 | CRUD de productos (tipos de hielo, precios) |
+| `inventario-service` | 8002 | Controla cuánto stock hay de cada producto |
+| `pedidos-service` | 8003 | El que orquesta todo — hace pedidos, consulta precios, descuenta stock, cobra |
+| `pagos-service` | 8004 | Simula pagos (85% de chance de que salgan bien, 15% de que fallen) |
 
-Cada servicio tiene su **propia base de datos PostgreSQL** — sin tablas compartidas.
+Cada servicio tiene su propia base de datos. Nada de tablas compartidas. Si necesitan hablar entre ellos, lo hacen por API.
 
-## 🚀 Cómo levantar el sistema
+---
 
-### Requisitos
-- Docker Desktop instalado y corriendo
-- Git
+## Cómo levantarlo
 
-### Levantar todo con un solo comando
+Necesitás tener Docker Desktop instalado y corriendo. Nada más.
+
 ```bash
+git clone <url-del-repo>
+cd "Challenge 9"
 docker compose up --build
 ```
 
-Esto levanta los 10 contenedores (5 servicios + 5 bases de datos).
+Eso levanta los 10 contenedores (5 servicios + 5 bases de datos) y los conecta entre sí. La primera vez tarda un poco porque descarga las imágenes base.
 
-### Documentación interactiva de cada servicio
+Cuando termina, cada servicio tiene su documentación interactiva (Swagger):
+- http://localhost:8005/docs — Auth
+- http://localhost:8001/docs — Productos
+- http://localhost:8002/docs — Inventario
+- http://localhost:8003/docs — Pedidos
+- http://localhost:8004/docs — Pagos
 
-Una vez levantado, cada servicio expone su Swagger UI:
+---
 
-- Auth: http://localhost:8005/docs
-- Productos: http://localhost:8001/docs
-- Inventario: http://localhost:8002/docs
-- Pedidos: http://localhost:8003/docs
-- Pagos: http://localhost:8004/docs
+## Cómo usarlo (el flujo básico)
 
-## 🔐 Flujo de uso
+Todo empieza en auth-service. Sin token, ningún otro endpoint responde.
 
-1. `POST /registro` en auth-service → crear usuario
-2. `POST /login` en auth-service → obtener `access_token`
-3. Usar ese token en el header `Authorization: Bearer <token>` en todos los demás servicios
-4. `POST /productos` → crear un producto
-5. `POST /inventario` → cargar stock
-6. `POST /pedidos` → crear pedido (orquesta automáticamente precio, stock y pago)
+**1. Registrarse**
+```
+POST localhost:8005/registro
+{"email": "yo@mail.com", "password": "mipassword"}
+```
 
-## 🛡️ Patrones implementados
+**2. Hacer login y copiar el token**
+```
+POST localhost:8005/login
+{"email": "yo@mail.com", "password": "mipassword"}
+```
+Te devuelve un `access_token`. Ese token va en el header de todos los requests siguientes:
+```
+Authorization: Bearer <el token que copiaste>
+```
+En Swagger, el botón "Authorize" (el candado) te permite pegarlo una sola vez y lo usa en todos los endpoints.
 
-- **JWT**: autenticación entre servicios con clave compartida
-- **Saga con compensación**: si el pago falla, el stock se repone automáticamente
-- **Circuit Breaker**: si un servicio falla repetidamente, las llamadas se cortan al instante (cerrado → abierto → semi-abierto → cerrado)
-- **Retry**: reintentos automáticos ante fallos técnicos transitorios
-- **Logging centralizado**: formato unificado en los 5 servicios
+**3. Crear un producto**
+```
+POST localhost:8001/productos
+{"nombre": "Hielo en escamas", "tipo_hielo": "escamas", "precio": 1500}
+```
 
-## 📁 Estructura del proyecto
+**4. Cargar stock**
+```
+POST localhost:8002/inventario
+{"producto_id": 1, "cantidad": 100}
+```
+
+**5. Crear un pedido**
+```
+POST localhost:8003/pedidos
+{"items": [{"producto_id": 1, "cantidad": 5}]}
+```
+Esto es lo interesante: pedidos-service se encarga solo de consultar el precio real a productos-service, descontar el stock en inventario-service, y cobrar en pagos-service. Vos solo mandás el producto y la cantidad.
+
+---
+
+## Lo que implementé (y por qué)
+
+**JWT entre servicios**
+Todos los servicios validan el mismo token con una clave secreta compartida. No necesitan llamarse entre sí para validar — cada uno puede verificar la firma localmente.
+
+**Saga con compensación**
+Si el pago falla después de haber descontado stock, el sistema repone el stock automáticamente. Así el inventario nunca queda descontado por un pedido que no se cobró.
+
+**Circuit Breaker**
+Si inventario-service (o cualquier otro) falla 3 veces seguidas, pedidos-service deja de llamarlo por 30 segundos en vez de seguir esperando timeouts. Después de ese tiempo prueba de nuevo con una sola llamada. Si funciona, vuelve a la normalidad.
+
+**Retry automático**
+Antes de contar un fallo para el circuit breaker, reintenta 2 veces. Solo los errores de red o 500 cuentan — si el servicio responde "no hay stock" (400), eso no es un fallo técnico.
+
+---
+
+## Estructura de carpetas
+
+```
+Challenge 9/
+├── docker-compose.yml         ← levanta todo junto
+├── .env                       ← SECRET_KEY y config compartida (no se sube a git)
+│
+├── auth-service/
+│   ├── app/
+│   │   ├── main.py            ← endpoints: /registro y /login
+│   │   ├── models.py          ← tabla usuarios
+│   │   ├── schemas.py         ← validación de datos con Pydantic
+│   │   ├── crud.py            ← lógica de crear y autenticar usuarios
+│   │   ├── security.py        ← hash de contraseñas (bcrypt) y JWT
+│   │   ├── database.py        ← conexión a PostgreSQL
+│   │   └── logger.py          ← configuración de logs
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── productos-service/         ← misma estructura interna
+├── inventario-service/        ← misma estructura interna
+├── pagos-service/             ← misma estructura interna
+│
+└── pedidos-service/
+    ├── app/
+    │   ├── clients.py         ← llama a los otros 3 servicios por HTTP
+    │   ├── circuit_breaker.py ← implementación manual del patrón Circuit Breaker
+    │   └── ...                ← misma estructura que los demás
+    └── ...
+```
+
+---
+
+## Cosas que tener en cuenta
+
+- El archivo `.env` en la raíz tiene la `SECRET_KEY` para JWT. Nunca subir esto a Git (ya está en `.gitignore`).
+- `pagos-service` simula pagos: 85% aprobados, 15% rechazados. Si un pedido te da 402, probá de nuevo.
+- El circuit breaker vive en `pedidos-service/app/circuit_breaker.py`. Para probarlo: `docker compose stop inventario-service`, intentá crear un pedido 3 veces, después `docker compose start inventario-service` y esperá 30 segundos.
+- Los volúmenes de Docker persisten los datos entre reinicios. Si querés arrancar desde cero: `docker compose down -v`.
+
+---
+
+## Stack
+
+- Python 3.12 + FastAPI + Uvicorn
+- SQLAlchemy (ORM) + PostgreSQL
+- Docker + Docker Compose
+- JWT con python-jose + bcrypt con passlib
+- httpx para llamadas HTTP entre servicios
